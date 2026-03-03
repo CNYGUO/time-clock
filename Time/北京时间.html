@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>桌面时钟 · 北京时间 · 网络校时</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            font-family: 'Adobe 宋体 Std L', 'SimSun', '宋体', 'Songti SC', serif;
+            background-color: #1a1a1a;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            transition: background-image 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-shadow: 0 0 20px rgba(0,0,0,0.7), 1px 1px 3px black;
+        }
+
+        .clock-panel {
+            background: rgba(20, 20, 30, 0.3);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-radius: 60px;
+            padding: 3rem 5rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.08);
+            max-width: 90vw;
+            text-align: center;
+        }
+
+        .time-display {
+            font-family: 'Times New Roman', Times, serif;
+            font-size: clamp(4rem, 20vw, 12rem);
+            font-weight: 400;
+            line-height: 1.1;
+            letter-spacing: 4px;
+            margin-bottom: 0.2rem;
+            white-space: nowrap;
+            text-shadow: 0 0 30px rgba(0,0,0,0.8);
+        }
+
+        .date-display {
+            font-family: 'Adobe 宋体 Std L', 'SimSun', '宋体', 'Songti SC', serif;
+            font-size: clamp(1.6rem, 5vw, 3rem);
+            font-weight: 300;
+            letter-spacing: 2px;
+            border-top: 1px solid rgba(255,255,255,0.25);
+            padding-top: 0.75rem;
+            margin-top: 0.5rem;
+            display: inline-block;
+            text-shadow: 0 0 20px rgba(0,0,0,0.7);
+        }
+
+        .number-font {
+            font-family: 'Times New Roman', Times, serif;
+            font-weight: 400;
+        }
+
+        .control-bar {
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            display: flex;
+            gap: 16px;
+            z-index: 100;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .control-btn, .file-label {
+            background: rgba(30, 30, 40, 0.6);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: white;
+            padding: 10px 22px;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-family: 'Adobe 宋体 Std L', 'SimSun', '宋体', sans-serif;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: all 0.15s ease;
+            text-shadow: 0 1px 2px black;
+            line-height: 1.2;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            letter-spacing: 0.5px;
+        }
+
+        .control-btn:hover, .file-label:hover {
+            background: rgba(60, 60, 80, 0.8);
+            border-color: rgba(255,255,255,0.4);
+            transform: scale(1.02);
+        }
+
+        .control-btn:active, .file-label:active {
+            transform: scale(0.98);
+        }
+
+        #bgUpload {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            overflow: hidden;
+            clip: rect(0,0,0,0);
+        }
+
+        .sync-status {
+            position: fixed;
+            bottom: 28px;
+            left: 28px;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(5px);
+            padding: 6px 18px;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.9);
+            border: 1px solid rgba(255,255,255,0.1);
+            font-family: 'Adobe 宋体 Std L', 'SimSun', '宋体', sans-serif;
+            letter-spacing: 0.5px;
+            z-index: 100;
+        }
+
+        .clear-bg {
+            background: rgba(180, 70, 70, 0.5);
+            margin-left: 8px;
+        }
+        .clear-bg:hover {
+            background: rgba(200, 80, 80, 0.8);
+        }
+
+        @media (max-width: 600px) {
+            .clock-panel {
+                padding: 2rem 2rem;
+                border-radius: 40px;
+            }
+            .control-bar {
+                bottom: 18px;
+                right: 18px;
+                gap: 10px;
+            }
+            .control-btn, .file-label {
+                padding: 6px 16px;
+                font-size: 0.9rem;
+            }
+            .sync-status {
+                bottom: 18px;
+                left: 18px;
+                font-size: 0.8rem;
+                padding: 4px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="clock-panel">
+        <div class="time-display" id="clockTime">--:--:--</div>
+        <div class="date-display" id="clockDate"></div>
+    </div>
+
+    <div class="sync-status" id="syncStatus">⚙️ 本地时间</div>
+
+    <div class="control-bar">
+        <button class="control-btn" id="syncBtn">🌐 同步网络时间</button>
+        <label for="bgUpload" class="file-label">🖼️ 选择背景图片</label>
+        <input type="file" id="bgUpload" accept="image/*">
+        <button class="control-btn clear-bg" id="clearBgBtn">✕ 清除背景</button>
+    </div>
+
+    <script>
+        (function() {
+            // 等待 DOM 完全加载后再执行，确保元素存在
+            document.addEventListener('DOMContentLoaded', function() {
+                // 获取必需的元素
+                var timeEl = document.getElementById('clockTime');
+                var dateEl = document.getElementById('clockDate');
+                var syncBtn = document.getElementById('syncBtn');
+                var statusEl = document.getElementById('syncStatus');
+                var bgInput = document.getElementById('bgUpload');
+                var clearBtn = document.getElementById('clearBgBtn');
+
+                // 如果核心元素不存在，说明 HTML 结构不完整，停止执行并提示
+                if (!timeEl || !dateEl) {
+                    console.error('时钟元素缺失，请检查 HTML 中是否包含 id 为 clockTime 和 clockDate 的元素');
+                    return;
+                }
+
+                // ---------- 北京时间相关变量 ----------
+                var isNetworkSynced = false;        // 是否使用网络基准时间
+                var syncNetworkTimeMs = 0;           // 同步时刻的 UTC 时间戳（毫秒）
+                var syncPerfTime = 0;                 // 同步时刻的 performance.now() 值
+
+                // 获取北京时间各字段（当网络同步时使用）
+                function getBeijingTimeComponents() {
+                    var nowPerf = performance.now();
+                    var elapsedMs = nowPerf - syncPerfTime;                // 经过的毫秒数
+                    var currentUtcMs = syncNetworkTimeMs + elapsedMs;      // 当前 UTC 时间戳
+                    var beijingMs = currentUtcMs + 8 * 3600000;            // 东八区时间戳
+                    var beijingDate = new Date(beijingMs);
+                    return {
+                        year: beijingDate.getUTCFullYear(),
+                        month: beijingDate.getUTCMonth() + 1,    // 月份 0-11 -> 1-12
+                        day: beijingDate.getUTCDate(),
+                        hours: beijingDate.getUTCHours(),
+                        minutes: beijingDate.getUTCMinutes(),
+                        seconds: beijingDate.getUTCSeconds(),
+                        weekday: beijingDate.getUTCDay()          // 0=周日, 1=周一...
+                    };
+                }
+
+                // 更新显示
+                function updateDisplay() {
+                    var year, month, day, hours, minutes, seconds, weekday;
+
+                    if (isNetworkSynced) {
+                        // 使用网络同步的北京时间
+                        var comp = getBeijingTimeComponents();
+                        year = comp.year;
+                        month = comp.month;
+                        day = comp.day;
+                        hours = comp.hours;
+                        minutes = comp.minutes;
+                        seconds = comp.seconds;
+                        weekday = comp.weekday;
+                    } else {
+                        // 未同步，使用设备本地时间（可能不是北京时间，但作为后备）
+                        var now = new Date();
+                        year = now.getFullYear();
+                        month = now.getMonth() + 1;
+                        day = now.getDate();
+                        hours = now.getHours();
+                        minutes = now.getMinutes();
+                        seconds = now.getSeconds();
+                        weekday = now.getDay();
+                    }
+
+                    // 补零函数
+                    function pad(n) {
+                        return n < 10 ? '0' + n : n;
+                    }
+
+                    // 更新时间
+                    timeEl.textContent = pad(hours) + ':' + pad(minutes) + ':' + pad(seconds);
+
+                    // 更新日期
+                    var weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+                    var weekStr = weekdays[weekday];
+                    dateEl.innerHTML = '<span class="number-font">' + year + '</span>年<span class="number-font">' + month + '</span>月<span class="number-font">' + day + '</span>日 ' + weekStr;
+                }
+
+                // 启动定时器，每秒更新
+                setInterval(updateDisplay, 1000);
+                // 立即显示一次
+                updateDisplay();
+
+                // ---------- 网络同步函数 ----------
+                function syncWithNetwork() {
+                    if (!syncBtn || !statusEl) return;
+                    var originalText = syncBtn.textContent;
+                    syncBtn.textContent = '⏳ 同步中...';
+                    syncBtn.disabled = true;
+
+                    // 使用 worldtimeapi 获取 UTC 时间
+                    fetch('https://worldtimeapi.org/api/timezone/Etc/UTC')
+                        .then(function(response) {
+                            return response.json();
+                        })
+                        .then(function(data) {
+                            if (data && typeof data.unixtime === 'number') {
+                                // 同步成功
+                                isNetworkSynced = true;
+                                syncNetworkTimeMs = data.unixtime * 1000;  // 转换为毫秒
+                                syncPerfTime = performance.now();
+                                statusEl.innerHTML = '🌐 北京时间 (网络同步)';
+                                updateDisplay();  // 立即刷新
+                            } else {
+                                throw new Error('返回数据格式不正确');
+                            }
+                        })
+                        .catch(function(error) {
+                            console.warn('网络同步失败', error);
+                            statusEl.innerHTML = '⚠️ 同步失败，使用本地时间';
+                            // 3秒后恢复显示当前状态
+                            setTimeout(function() {
+                                statusEl.innerHTML = isNetworkSynced ? '🌐 北京时间 (网络同步)' : '⚙️ 本地时间';
+                            }, 3000);
+                        })
+                        .finally(function() {
+                            syncBtn.textContent = originalText;
+                            syncBtn.disabled = false;
+                        });
+                }
+
+                // 页面加载完成后自动尝试同步一次（静默）
+                window.addEventListener('load', function() {
+                    syncWithNetwork();
+                });
+
+                // 手动同步按钮点击事件
+                if (syncBtn) {
+                    syncBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        syncWithNetwork();
+                    });
+                }
+
+                // ---------- 背景上传功能 ----------
+                if (bgInput && clearBtn) {
+                    var currentBgUrl = null;  // 用于撤销对象URL
+
+                    bgInput.addEventListener('change', function(e) {
+                        var file = e.target.files[0];
+                        if (!file) return;
+                        if (!file.type.startsWith('image/')) {
+                            alert('请选择图片文件');
+                            bgInput.value = '';
+                            return;
+                        }
+                        // 释放之前的URL
+                        if (currentBgUrl) {
+                            URL.revokeObjectURL(currentBgUrl);
+                        }
+                        // 创建新的对象URL
+                        var url = URL.createObjectURL(file);
+                        currentBgUrl = url;
+                        document.body.style.backgroundImage = "url('" + url + "')";
+                        document.body.style.backgroundColor = 'transparent';
+                        // 清空input以便再次选择同一文件
+                        bgInput.value = '';
+                    });
+
+                    clearBtn.addEventListener('click', function() {
+                        document.body.style.backgroundImage = 'none';
+                        document.body.style.backgroundColor = '#1a1a1a';
+                        if (currentBgUrl) {
+                            URL.revokeObjectURL(currentBgUrl);
+                            currentBgUrl = null;
+                        }
+                    });
+
+                    // 页面卸载时释放资源
+                    window.addEventListener('beforeunload', function() {
+                        if (currentBgUrl) {
+                            URL.revokeObjectURL(currentBgUrl);
+                        }
+                    });
+                }
+
+                // 点击状态指示器显示当前时间源说明
+                if (statusEl) {
+                    statusEl.style.cursor = 'help';
+                    statusEl.addEventListener('click', function() {
+                        if (isNetworkSynced) {
+                            alert('当前基于网络同步的北京时间，点击“同步网络时间”可再次校准。');
+                        } else {
+                            alert('当前使用您设备本地时间。联网后点击同步按钮可校准为北京时间。');
+                        }
+                    });
+                }
+            }); // DOMContentLoaded 结束
+        })();
+    </script>
+</body>
+</html>
