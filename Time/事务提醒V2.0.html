@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>桌面时钟 · 事务闹钟 · 背景调整</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            font-family: 'Adobe 宋体 Std L', 'SimSun', '宋体', 'Songti SC', serif;
+            background-color: #1a1a1a;
+            background-size: cover;  /* 默认覆盖模式 */
+            background-position: center;
+            background-repeat: no-repeat;
+            transition: background-image 0.2s ease, background-size 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-shadow: 0 0 20px rgba(0,0,0,0.7), 1px 1px 3px black;
+        }
+
+        .clock-panel {
+            background: rgba(20, 20, 30, 0.3);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-radius: 60px;
+            padding: 3rem 5rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.08);
+            max-width: 90vw;
+            text-align: center;
+            z-index: 10;
+        }
+
+        .time-display {
+            font-family: 'Times New Roman', Times, serif;
+            font-size: clamp(4rem, 20vw, 12rem);
+            font-weight: 400;
+            line-height: 1.1;
+            letter-spacing: 4px;
+            margin-bottom: 0.2rem;
+            white-space: nowrap;
+            text-shadow: 0 0 30px rgba(0,0,0,0.8);
+        }
+
+        .date-display {
+            font-family: 'Adobe 宋体 Std L', 'SimSun', '宋体', 'Songti SC', serif;
+            font-size: clamp(1.6rem, 5vw, 3rem);
+            font-weight: 300;
+            letter-spacing: 2px;
+            border-top: 1px solid rgba(255,255,255,0.25);
+            padding-top: 0.75rem;
+            margin-top: 0.5rem;
+            display: inline-block;
+            text-shadow: 0 0 20px rgba(0,0,0,0.7);
+        }
+
+        .number-font {
+            font-family: 'Times New Roman', Times, serif;
+            font-weight: 400;
+        }
+
+        /* ---------- 左侧事务面板 (毛玻璃, 固定, 可隐藏) ---------- */
+        .todo-panel {
+            position: fixed;
+            left: 24px;
+            top: 24px;
+            bottom: 90px;        /* 为左下状态指示器让出空间 */
+            width: 340px;
+            background: rgba(20, 20, 30, 0.35);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: 36px;
+            border: 1px solid rgba(255,255,255,0.12);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            padding: 22px 18px;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            z-index: 50;
+            transition: 0.2s;
+            text-shadow: 0 1px 3px black;
+            overflow: hidden;
+        }
+
+        .todo-panel.hidden {
+            display: none;  /* 隐藏面板 */
+        }
+
+        .todo-header {
+            font-size: 1.7rem;
+            letter-spacing: 2px;
+            font-weight: 300;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .todo-header span {
+            font-size: 1rem;
+            background: rgba(255,255,255,0.15);
+            padding: 4px 10px;
+            border-radius: 40px;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+        .todo-header span:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .todo-form {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 24px;
+            background: rgba(0,0,0,0.2);
+            padding: 16px 14px;
+            border-radius: 28px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .todo-form input, .todo-form select {
+            background: rgba(30,30,40,0.7);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 40px;
+            padding: 10px 18px;
+            font-size: 0.95rem;
+            color: white;
+            outline: none;
+            font-family: inherit;
+        }
+        .todo-form input::placeholder {
+            color: rgba(255,255,255,0.5);
+        }
+        .todo-form input:focus, .todo-form select:focus {
+            border-color: rgba(255,255,255,0.6);
+            background: rgba(40,40,55,0.9);
+        }
+        .todo-form select option {
+            background: #2a2a35;
+            color: white;
+        }
+        .date-row {
+            display: flex;
+            gap: 8px;
+        }
+        .date-row input {
+            flex: 1;
+            width: auto;
+        }
+        .add-btn {
+            background: rgba(70, 100, 150, 0.6);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 50px;
+            padding: 10px 0;
+            font-size: 1.1rem;
+            font-weight: 400;
+            cursor: pointer;
+            transition: 0.15s;
+            margin-top: 6px;
+            color: white;
+            letter-spacing: 1px;
+        }
+        .add-btn:hover {
+            background: rgba(90, 130, 190, 0.8);
+            border-color: rgba(255,255,255,0.5);
+        }
+
+        .filter-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 10px 0 14px 0;
+            font-size: 0.9rem;
+            background: rgba(0,0,0,0.15);
+            padding: 8px 14px;
+            border-radius: 40px;
+        }
+        .filter-bar label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+        .filter-bar input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #4a80c0;
+        }
+
+        .tasks-container {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 4px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.3) transparent;
+        }
+        .tasks-container::-webkit-scrollbar {
+            width: 5px;
+        }
+        .tasks-container::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.3);
+            border-radius: 10px;
+        }
+
+        .task-item {
+            padding: 10px 12px 10px 8px;
+            margin-bottom: 6px;
+            border-radius: 30px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.05);
+            backdrop-filter: blur(2px);
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            transition: 0.1s;
+            word-break: break-word;
+        }
+        .task-item:hover {
+            background: rgba(255,255,255,0.12);
+            border-color: rgba(255,255,255,0.15);
+        }
+        .task-item.completed .task-title {
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+        .task-check {
+            margin-top: 3px;
+            transform: scale(1.1);
+            accent-color: #4e9e5a;
+            flex-shrink: 0;
+        }
+        .task-content {
+            flex: 1;
+        }
+        .task-title {
+            font-size: 1.05rem;
+            font-weight: 400;
+            margin-bottom: 4px;
+        }
+        .task-dates {
+            font-size: 0.8rem;
+            opacity: 0.75;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .task-badge {
+            background: rgba(255,255,255,0.1);
+            border-radius: 30px;
+            padding: 2px 10px;
+            font-size: 0.75rem;
+            display: inline-block;
+        }
+        .task-actions {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .task-actions button {
+            background: transparent;
+            border: none;
+            color: rgba(255,255,255,0.7);
+            font-size: 1.2rem;
+            cursor: pointer;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.1s;
+        }
+        .task-actions button:hover {
+            background: rgba(200,70,70,0.7);
+            color: white;
+        }
+        .child-indent {
+            margin-left: 28px;
+        }
+        .no-tasks {
+            text-align: center;
+            opacity: 0.6;
+            padding: 30px 0;
+            font-style: italic;
+        }
+
+        .control-bar {
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            display: flex;
+            gap: 16px;
+            z-index: 100;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .control-btn, .file-label {
+            background: rgba(30, 30, 40, 0.6);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: white;
+            padding: 10px 22px;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-family: 'Adobe 宋体 Std L', 'SimSun', '宋体', sans-serif;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: all 0.15s ease;
+            text-shadow: 0 1px 2px black;
+            line-height: 1.2;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            letter-spacing: 0.5px;
+        }
+
+        .control-btn:hover, .file-label:hover {
+            background: rgba(60, 60, 80, 0.8);
+            border-color: rgba(255,255,255,0.4);
+            transform: scale(1.02);
+        }
+
+        .control-btn:active, .file-label:active {
+            transform: scale(0.98);
+        }
+
+        #bgUpload {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            overflow: hidden;
+            clip: rect(0,0,0,0);
+        }
+
+        .sync-status {
+            position: fixed;
+            bottom: 28px;
+            left: 28px;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(5px);
+            padding: 6px 18px;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.9);
+            border: 1px solid rgba(255,255,255,0.1);
+            font-family: 'Adobe 宋体 Std L', 'SimSun', '宋体', sans-serif;
+            letter-spacing: 0.5px;
+            z-index: 100;
+        }
+
+        .clear-bg {
+            background: rgba(180, 70, 70, 0.5);
+            margin-left: 8px;
+        }
+        .clear-bg:hover {
+            background: rgba(200, 80, 80, 0.8);
+        }
+
+        @media (max-width: 700px) {
+            .todo-panel {
+                width: 280px;
+                left: 12px;
+                top: 12px;
+                bottom: 80px;
+                padding: 18px 12px;
+            }
+            .clock-panel {
+                padding: 1.8rem 1.8rem;
+            }
+        }
+        @media (max-width: 500px) {
+            .todo-panel {
+                width: calc(100vw - 24px);
+                left: 12px;
+                right: 12px;
+                top: auto;
+                bottom: 100px;
+                height: 50vh;
+                min-height: 320px;
+            }
+            .control-bar {
+                bottom: 16px;
+                right: 16px;
+            }
+            .sync-status {
+                bottom: 16px;
+                left: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="clock-panel">
+        <div class="time-display" id="clockTime">--:--:--</div>
+        <div class="date-display" id="clockDate"></div>
+    </div>
+
+    <!-- 事务提醒面板 (可隐藏) -->
+    <div class="todo-panel" id="todoPanel">
+        <div class="todo-header">
+            ⏳ 事务提醒
+            <span id="clearCompletedBtn" title="清除已完成事项">🗑️ 清除</span>
+        </div>
+        <div class="todo-form">
+            <input type="text" id="taskTitle" placeholder="事项名称 (例如: 准备报告)" autocomplete="off">
+            <div class="date-row">
+                <input type="date" id="taskStartDate" title="开始日期">
+                <input type="date" id="taskDueDate" title="截止日期">
+            </div>
+            <select id="taskParent">
+                <option value="">—— 作为父任务 ——</option>
+            </select>
+            <button class="add-btn" id="addTaskBtn">+ 添加事项</button>
+        </div>
+        <div class="filter-bar">
+            <label>
+                <input type="checkbox" id="hideCompleted" checked> 隐藏已完成 (省略)
+            </label>
+            <span id="taskCount"></span>
+        </div>
+        <div class="tasks-container" id="tasksContainer">
+            <!-- 动态渲染任务列表 -->
+            <div class="no-tasks">✨ 添加一个任务吧</div>
+        </div>
+    </div>
+
+    <div class="sync-status" id="syncStatus">⚙️ 本地时间</div>
+
+    <!-- 控制栏：新增两个按钮 -->
+    <div class="control-bar">
+        <button class="control-btn" id="toggleTodoBtn">📋 隐藏事务</button>   <!-- 隐藏/显示事务面板 -->
+        <button class="control-btn" id="bgSizeToggleBtn">🖼️ 适应: 覆盖</button> <!-- 背景适应模式切换 -->
+        <button class="control-btn" id="syncBtn">🌐 同步网络时间</button>
+        <label for="bgUpload" class="file-label">🖼️ 选择背景图片</label>
+        <input type="file" id="bgUpload" accept="image/*">
+        <button class="control-btn clear-bg" id="clearBgBtn">✕ 清除背景</button>
+    </div>
+
+    <script>
+        (function() {
+            document.addEventListener('DOMContentLoaded', function() {
+                // ---------- 原有时钟元素 ----------
+                const timeEl = document.getElementById('clockTime');
+                const dateEl = document.getElementById('clockDate');
+                const syncBtn = document.getElementById('syncBtn');
+                const statusEl = document.getElementById('syncStatus');
+                const bgInput = document.getElementById('bgUpload');
+                const clearBtn = document.getElementById('clearBgBtn');
+
+                if (!timeEl || !dateEl) {
+                    console.error('时钟元素缺失');
+                    return;
+                }
+
+                // 北京时间相关逻辑 (保留完整)
+                let isNetworkSynced = false;
+                let syncNetworkTimeMs = 0;
+                let syncPerfTime = 0;
+
+                function getBeijingTimeComponents() {
+                    const nowPerf = performance.now();
+                    const elapsedMs = nowPerf - syncPerfTime;
+                    const currentUtcMs = syncNetworkTimeMs + elapsedMs;
+                    const beijingMs = currentUtcMs + 8 * 3600000;
+                    const beijingDate = new Date(beijingMs);
+                    return {
+                        year: beijingDate.getUTCFullYear(),
+                        month: beijingDate.getUTCMonth() + 1,
+                        day: beijingDate.getUTCDate(),
+                        hours: beijingDate.getUTCHours(),
+                        minutes: beijingDate.getUTCMinutes(),
+                        seconds: beijingDate.getUTCSeconds(),
+                        weekday: beijingDate.getUTCDay()
+                    };
+                }
+
+                function updateDisplay() {
+                    let year, month, day, hours, minutes, seconds, weekday;
+                    if (isNetworkSynced) {
+                        const comp = getBeijingTimeComponents();
+                        year = comp.year; month = comp.month; day = comp.day;
+                        hours = comp.hours; minutes = comp.minutes; seconds = comp.seconds;
+                        weekday = comp.weekday;
+                    } else {
+                        const now = new Date();
+                        year = now.getFullYear(); month = now.getMonth()+1; day = now.getDate();
+                        hours = now.getHours(); minutes = now.getMinutes(); seconds = now.getSeconds();
+                        weekday = now.getDay();
+                    }
+                    function pad(n) { return n < 10 ? '0'+n : n; }
+                    timeEl.textContent = pad(hours)+':'+pad(minutes)+':'+pad(seconds);
+                    const weekdays = ['周日','周一','周二','周三','周四','周五','周六'];
+                    dateEl.innerHTML = `<span class="number-font">${year}</span>年<span class="number-font">${month}</span>月<span class="number-font">${day}</span>日 ${weekdays[weekday]}`;
+                }
+                setInterval(updateDisplay, 1000);
+                updateDisplay();
+
+                // 网络同步
+                function syncWithNetwork() {
+                    if (!syncBtn || !statusEl) return;
+                    const originalText = syncBtn.textContent;
+                    syncBtn.textContent = '⏳ 同步中...';
+                    syncBtn.disabled = true;
+                    fetch('https://worldtimeapi.org/api/timezone/Etc/UTC')
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data && typeof data.unixtime === 'number') {
+                                isNetworkSynced = true;
+                                syncNetworkTimeMs = data.unixtime * 1000;
+                                syncPerfTime = performance.now();
+                                statusEl.innerHTML = '🌐 北京时间 (网络同步)';
+                                updateDisplay();
+                            } else throw new Error('数据错误');
+                        })
+                        .catch(() => {
+                            statusEl.innerHTML = '⚠️ 同步失败，使用本地时间';
+                            setTimeout(() => {
+                                statusEl.innerHTML = isNetworkSynced ? '🌐 北京时间 (网络同步)' : '⚙️ 本地时间';
+                            }, 3000);
+                        })
+                        .finally(() => {
+                            syncBtn.textContent = originalText;
+                            syncBtn.disabled = false;
+                        });
+                }
+                window.addEventListener('load', () => syncWithNetwork());
+                if (syncBtn) syncBtn.addEventListener('click', (e) => { e.preventDefault(); syncWithNetwork(); });
+
+                // ---------- 新增：背景适应模式切换 ----------
+                let currentSizeMode = 'cover';  // 可选 'cover', 'contain', '100% 100%'
+                const modeDisplayNames = {
+                    'cover': '覆盖',
+                    'contain': '包含',
+                    '100% 100%': '拉伸'
+                };
+                const bgSizeToggleBtn = document.getElementById('bgSizeToggleBtn');
+                if (bgSizeToggleBtn) {
+                    // 初始化按钮文本
+                    bgSizeToggleBtn.textContent = `🖼️ 适应: ${modeDisplayNames[currentSizeMode]}`;
+                    // 设置body默认背景大小
+                    document.body.style.backgroundSize = currentSizeMode;
+
+                    bgSizeToggleBtn.addEventListener('click', function() {
+                        // 循环切换模式
+                        if (currentSizeMode === 'cover') currentSizeMode = 'contain';
+                        else if (currentSizeMode === 'contain') currentSizeMode = '100% 100%';
+                        else currentSizeMode = 'cover';
+                        document.body.style.backgroundSize = currentSizeMode;
+                        bgSizeToggleBtn.textContent = `🖼️ 适应: ${modeDisplayNames[currentSizeMode]}`;
+                    });
+                }
+
+                // 背景上传功能 (增强：保持当前适应模式)
+                if (bgInput && clearBtn) {
+                    let currentBgUrl = null;
+                    bgInput.addEventListener('change', function(e) {
+                        const file = e.target.files[0];
+                        if (!file || !file.type.startsWith('image/')) return alert('请选择图片');
+                        if (currentBgUrl) URL.revokeObjectURL(currentBgUrl);
+                        const url = URL.createObjectURL(file);
+                        currentBgUrl = url;
+                        document.body.style.backgroundImage = `url('${url}')`;
+                        document.body.style.backgroundColor = 'transparent';
+                        // 应用当前选中的背景适应模式
+                        document.body.style.backgroundSize = currentSizeMode;
+                        bgInput.value = '';
+                    });
+                    clearBtn.addEventListener('click', function() {
+                        document.body.style.backgroundImage = 'none';
+                        document.body.style.backgroundColor = '#1a1a1a';
+                        if (currentBgUrl) { URL.revokeObjectURL(currentBgUrl); currentBgUrl = null; }
+                        // 清除背景后保留适应模式，但背景已无，无影响
+                    });
+                    window.addEventListener('beforeunload', () => { if (currentBgUrl) URL.revokeObjectURL(currentBgUrl); });
+                }
+
+                if (statusEl) {
+                    statusEl.style.cursor = 'help';
+                    statusEl.addEventListener('click', () => alert(isNetworkSynced ? '基于网络同步的北京时间' : '使用设备本地时间，可点击同步校准'));
+                }
+
+                // ---------- 新增：事务面板隐藏/显示 ----------
+                const todoPanel = document.getElementById('todoPanel');
+                const toggleTodoBtn = document.getElementById('toggleTodoBtn');
+                if (todoPanel && toggleTodoBtn) {
+                    let panelVisible = true; // 初始可见
+                    toggleTodoBtn.addEventListener('click', function() {
+                        if (panelVisible) {
+                            todoPanel.classList.add('hidden');
+                            toggleTodoBtn.textContent = '📋 显示事务';
+                        } else {
+                            todoPanel.classList.remove('hidden');
+                            toggleTodoBtn.textContent = '📋 隐藏事务';
+                        }
+                        panelVisible = !panelVisible;
+                    });
+                }
+
+                // ---------- 事务提醒模块 (父子项目/起止日期/隐藏完成) 保持原有完整功能 ----------
+                (function todoModule() {
+                    // 任务数据
+                    let tasks = [];
+                    const STORAGE_KEY = 'beijing_todo_tasks';
+
+                    // DOM 元素
+                    const tasksContainer = document.getElementById('tasksContainer');
+                    const taskTitle = document.getElementById('taskTitle');
+                    const taskStartDate = document.getElementById('taskStartDate');
+                    const taskDueDate = document.getElementById('taskDueDate');
+                    const taskParent = document.getElementById('taskParent');
+                    const addBtn = document.getElementById('addTaskBtn');
+                    const hideCompletedChk = document.getElementById('hideCompleted');
+                    const clearCompletedBtn = document.getElementById('clearCompletedBtn');
+                    const taskCountSpan = document.getElementById('taskCount');
+
+                    // 加载本地数据
+                    function loadTasks() {
+                        try {
+                            const saved = localStorage.getItem(STORAGE_KEY);
+                            if (saved) tasks = JSON.parse(saved);
+                            else {
+                                // 添加一些演示任务
+                                tasks = [
+                                    { id: Date.now() - 10000, title: '准备季度汇报', startDate: '2025-03-20', dueDate: '2025-03-25', completed: false, parentId: null },
+                                    { id: Date.now() - 9000, title: '收集数据', startDate: '2025-03-20', dueDate: '2025-03-22', completed: false, parentId: null },
+                                    { id: Date.now() - 8000, title: '分析图表', startDate: '2025-03-23', dueDate: '2025-03-24', completed: false, parentId: null },
+                                    { id: Date.now() - 7000, title: '📊 制作PPT', startDate: '2025-03-22', dueDate: '2025-03-24', completed: true, parentId: null },
+                                ];
+                                tasks[2].parentId = tasks[0].id;  // 分析图表 是 准备汇报的子任务
+                            }
+                        } catch { tasks = []; }
+                    }
+                    loadTasks();
+
+                    // 保存
+                    function saveTasks() {
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+                    }
+
+                    // 获取所有父任务 (未完成 + 可选本身)
+                    function updateParentSelect() {
+                        const options = '<option value="">—— 作为父任务 ——</option>' + 
+                            tasks.filter(t => !t.completed)  // 只能选未完成的作为父级
+                                .map(t => `<option value="${t.id}">${t.title.substring(0,20)}</option>`).join('');
+                        taskParent.innerHTML = options;
+                    }
+
+                    // 递归删除任务及其所有后代
+                    function deleteTaskAndDescendants(taskId) {
+                        const descendants = new Set();
+                        function findDescendants(id) {
+                            tasks.forEach(t => {
+                                if (t.parentId === id && !descendants.has(t.id)) {
+                                    descendants.add(t.id);
+                                    findDescendants(t.id);
+                                }
+                            });
+                        }
+                        findDescendants(taskId);
+                        descendants.add(taskId);
+                        tasks = tasks.filter(t => !descendants.has(t.id));
+                    }
+
+                    // 渲染任务 (支持层级和隐藏已完成)
+                    function renderTasks() {
+                        if (!tasksContainer) return;
+                        const hideCompleted = hideCompletedChk ? hideCompletedChk.checked : false;
+                        let filteredTasks = hideCompleted ? tasks.filter(t => !t.completed) : [...tasks];
+                        
+                        // 构建映射和子级结构
+                        const taskMap = new Map();
+                        filteredTasks.forEach(t => taskMap.set(t.id, { ...t, children: [] }));
+                        const roots = [];
+                        filteredTasks.forEach(t => {
+                            if (t.parentId && taskMap.has(t.parentId)) {
+                                taskMap.get(t.parentId).children.push(taskMap.get(t.id));
+                            } else {
+                                roots.push(taskMap.get(t.id));
+                            }
+                        });
+
+                        // 递归渲染函数
+                        function renderItem(task, depth = 0) {
+                            const marginLeft = depth * 24;
+                            const dateStr = [];
+                            if (task.startDate) dateStr.push(`📅开始 ${task.startDate}`);
+                            if (task.dueDate) dateStr.push(`⏰截止 ${task.dueDate}`);
+                            const completedClass = task.completed ? 'completed' : '';
+                            return `
+                                <div class="task-item ${completedClass}" data-id="${task.id}" style="margin-left: ${marginLeft}px">
+                                    <input type="checkbox" class="task-check" ${task.completed ? 'checked' : ''}>
+                                    <div class="task-content">
+                                        <div class="task-title">${task.title}</div>
+                                        ${dateStr.length ? `<div class="task-dates">${dateStr.join(' · ')}</div>` : ''}
+                                    </div>
+                                    <div class="task-actions">
+                                        <button class="delete-task" title="删除任务">🗑️</button>
+                                    </div>
+                                </div>
+                            `;
+                        }
+
+                        function renderTree(nodes, depth = 0) {
+                            return nodes.map(node => {
+                                let html = renderItem(node, depth);
+                                if (node.children && node.children.length) {
+                                    html += renderTree(node.children, depth + 1);
+                                }
+                                return html;
+                            }).join('');
+                        }
+
+                        if (roots.length === 0) {
+                            tasksContainer.innerHTML = '<div class="no-tasks">✨ 没有任务，添加一条吧</div>';
+                        } else {
+                            tasksContainer.innerHTML = renderTree(roots);
+                        }
+
+                        // 更新计数
+                        if (taskCountSpan) {
+                            const total = tasks.length;
+                            const completed = tasks.filter(t => t.completed).length;
+                            taskCountSpan.innerText = `${total - completed}/${total}`;
+                        }
+
+                        // 刷新父任务下拉框
+                        updateParentSelect();
+
+                        // 绑定每个任务的 checkbox 和删除按钮事件 (事件委托)
+                        document.querySelectorAll('.task-item').forEach(item => {
+                            const chk = item.querySelector('.task-check');
+                            const del = item.querySelector('.delete-task');
+                            const id = Number(item.dataset.id);
+                            if (chk) {
+                                chk.addEventListener('change', (e) => {
+                                    const task = tasks.find(t => t.id === id);
+                                    if (task) {
+                                        task.completed = chk.checked;
+                                        saveTasks();
+                                        renderTasks();  // 刷新 (隐藏完成可能改变视图)
+                                    }
+                                });
+                            }
+                            if (del) {
+                                del.addEventListener('click', (e) => {
+                                    e.stopPropagation();
+                                    if (confirm('删除此项及其子任务？')) {
+                                        deleteTaskAndDescendants(id);
+                                        saveTasks();
+                                        renderTasks();
+                                    }
+                                });
+                            }
+                        });
+                    }
+
+                    // 添加新任务
+                    function addNewTask() {
+                        const title = taskTitle.value.trim();
+                        if (!title) return alert('请输入事项名称');
+                        const start = taskStartDate.value || '';
+                        const due = taskDueDate.value || '';
+                        const parentVal = taskParent.value;
+                        const parentId = parentVal ? Number(parentVal) : null;
+
+                        // 检查父任务是否存在且未完成 (父任务不能已完成)
+                        if (parentId) {
+                            const parent = tasks.find(t => t.id === parentId);
+                            if (!parent) return alert('父任务不存在');
+                            if (parent.completed) return alert('已完成的事项不能作为父任务，请先取消完成或选择其他父任务');
+                        }
+
+                        const newTask = {
+                            id: Date.now() + Math.random(),
+                            title: title,
+                            startDate: start,
+                            dueDate: due,
+                            completed: false,
+                            parentId: parentId,
+                        };
+                        tasks.push(newTask);
+                        saveTasks();
+
+                        // 清空表单
+                        taskTitle.value = '';
+                        taskStartDate.value = '';
+                        taskDueDate.value = '';
+                        renderTasks();
+                    }
+
+                    // 清除已完成任务 (使其子任务变为顶级)
+                    function clearCompleted() {
+                        const completedIds = tasks.filter(t => t.completed).map(t => t.id);
+                        if (completedIds.length === 0) return;
+                        // 将所有子任务的parentId置空（如果父任务被删）
+                        tasks.forEach(t => {
+                            if (t.parentId && completedIds.includes(t.parentId)) {
+                                t.parentId = null;
+                            }
+                        });
+                        // 删除已完成
+                        tasks = tasks.filter(t => !t.completed);
+                        saveTasks();
+                        renderTasks();
+                    }
+
+                    // 事件绑定
+                    if (addBtn) addBtn.addEventListener('click', addNewTask);
+                    if (hideCompletedChk) hideCompletedChk.addEventListener('change', renderTasks);
+                    if (clearCompletedBtn) clearCompletedBtn.addEventListener('click', clearCompleted);
+
+                    // 初始化渲染
+                    renderTasks();
+                })();
+
+            }); // DOMContentLoaded end
+        })();
+    </script>
+</body>
+</html>
